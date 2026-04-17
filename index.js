@@ -1,46 +1,76 @@
-const TelegramBot = require("node-telegram-bot-api");
 const fs = require("fs");
+const fetch = require("node-fetch");
 
-const bot = new TelegramBot(process.env.BOT_TOKEN);
-const chatId = process.env.CHAT_ID;
+const BOT_TOKEN = process.env.BOT_TOKEN;
+const CHAT_ID = process.env.CHAT_ID;
 
-// Load or init data
+const url = `https://api.telegram.org/bot${BOT_TOKEN}`;
+
 let data = { streak: 0, lastMarkedDate: null };
 
 if (fs.existsSync("data.json")) {
   data = JSON.parse(fs.readFileSync("data.json"));
 }
 
-// Get today's date
 const today = new Date().toISOString().split("T")[0];
 
-// If already marked today → skip asking again
-if (data.lastMarkedDate === today) {
-  console.log("Already marked today");
-  process.exit();
+// STEP 1: Check updates (button clicks)
+async function checkResponse() {
+  const res = await fetch(`${url}/getUpdates`);
+  const json = await res.json();
+
+  let updated = false;
+
+  for (let update of json.result.reverse()) {
+    if (update.callback_query) {
+      const msgDate = new Date(update.callback_query.message.date * 1000)
+        .toISOString()
+        .split("T")[0];
+
+      if (msgDate === today) {
+        if (update.callback_query.data === "done") {
+          data.streak += 1;
+        } else {
+          data.streak = 0;
+        }
+
+        data.lastMarkedDate = today;
+        updated = true;
+        break;
+      }
+    }
+  }
+
+  if (updated) {
+    fs.writeFileSync("data.json", JSON.stringify(data, null, 2));
+  }
+
+  return updated;
 }
 
-// Send message
-bot.sendMessage(chatId, "LeetCode check:", {
-  reply_markup: {
-    inline_keyboard: [
-      [{ text: "✅ Done", callback_data: "done" }],
-      [{ text: "❌ Not Done", callback_data: "not_done" }]
-    ]
+// STEP 2: Send reminder
+async function sendReminder() {
+  await fetch(`${url}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: CHAT_ID,
+      text: `LeetCode check (streak: ${data.streak})`,
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "✅ Done", callback_data: "done" }],
+          [{ text: "❌ Not Done", callback_data: "not_done" }]
+        ]
+      }
+    })
+  });
+}
+
+// MAIN
+(async () => {
+  const responded = await checkResponse();
+
+  if (!responded && data.lastMarkedDate !== today) {
+    await sendReminder();
   }
-});
-
-// Listen for response
-bot.on("callback_query", (query) => {
-  if (query.data === "done") {
-    data.streak += 1;
-    data.lastMarkedDate = today;
-  } else {
-    data.streak = 0;
-    data.lastMarkedDate = today;
-  }
-
-  fs.writeFileSync("data.json", JSON.stringify(data, null, 2));
-
-  bot.answerCallbackQuery(query.id);
-});
+})();
