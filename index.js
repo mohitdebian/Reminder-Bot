@@ -42,13 +42,13 @@ async function main() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         chat_id: CHAT_ID,
-        text: `⏰ LeetCode check (current streak: ${data.streak})`,
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: "✅ Done", callback_data: "done" }],
-            [{ text: "❌ Not Done", callback_data: "not_done" }],
-          ],
-        },
+        text: `babu leetcode kiya aapne`,
+        // reply_markup: {
+        //   inline_keyboard: [
+        //     [{ text: "✅ Done", callback_data: "done" }],
+        //     [{ text: "❌ Not Done", callback_data: "not_done" }],
+        //   ],
+        // },
       }),
     });
   }
