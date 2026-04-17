@@ -14,7 +14,35 @@ if (fs.existsSync("data.json")) {
 
 const today = new Date().toISOString().split("T")[0];
 
-// STEP 1: Check new updates only
+// Send plain message
+async function sendMessage(text) {
+  await fetch(`${url}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: CHAT_ID,
+      text,
+    }),
+  });
+}
+
+// Save + push to GitHub
+function saveData() {
+  fs.writeFileSync("data.json", JSON.stringify(data, null, 2));
+
+  try {
+    execSync("git config --global user.email 'bot@example.com'");
+    execSync("git config --global user.name 'bot'");
+
+    execSync("git add data.json");
+    execSync("git commit -m 'update streak'");
+    execSync("git push");
+  } catch (e) {
+    console.log("No changes to commit");
+  }
+}
+
+// Check button clicks
 async function checkResponse() {
   const res = await fetch(`${url}/getUpdates?offset=${data.lastUpdateId + 1}`);
   const json = await res.json();
@@ -50,14 +78,14 @@ async function checkResponse() {
   return updated;
 }
 
-// STEP 2: Send reminder
+// Send reminder with buttons
 async function sendReminder() {
   await fetch(`${url}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       chat_id: CHAT_ID,
-      text: `LeetCode check (current streak: ${data.streak})`,
+      text: `⏰ LeetCode check (current streak: ${data.streak})`,
       reply_markup: {
         inline_keyboard: [
           [{ text: "✅ Done", callback_data: "done" }],
@@ -68,39 +96,18 @@ async function sendReminder() {
   });
 }
 
-// STEP 3: Send plain message
-async function sendMessage(text) {
-  await fetch(`${url}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: CHAT_ID,
-      text,
-    })
-  });
-}
-
-// STEP 4: Save to GitHub repo
-function saveData() {
-  fs.writeFileSync("data.json", JSON.stringify(data, null, 2));
-
-  try {
-    execSync("git config --global user.email 'bot@example.com'");
-    execSync("git config --global user.name 'bot'");
-
-    execSync("git add data.json");
-    execSync("git commit -m 'update streak'");
-    execSync("git push");
-  } catch (e) {
-    console.log("No changes to commit");
-  }
-}
-
 // MAIN
 (async () => {
-  const responded = await checkResponse();
+  try {
+    const responded = await checkResponse();
 
-  if (!responded && data.lastMarkedDate !== today) {
-    await sendReminder();
+    // Always remind if not marked today
+    if (data.lastMarkedDate !== today) {
+      await sendReminder();
+    }
+
+  } catch (err) {
+    // Send error directly to Telegram
+    await sendMessage(`❌ Error: ${err.message}`);
   }
 })();
