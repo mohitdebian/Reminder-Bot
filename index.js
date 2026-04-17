@@ -100,10 +100,10 @@ async function main() {
       }
     }
 
-    if (updated) {
-      saveData();
-      await sendMessage(`✅ Updated! Current streak: ${data.streak}`);
-    }
+    // if (updated) {
+    //   saveData();
+    //   await sendMessage(`✅ Updated! Current streak: ${data.streak}`);
+    // }
   }
 
   try {
